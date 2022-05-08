@@ -1,20 +1,13 @@
 %{
-#include "tokens.hpp"
+#include "parser.tab.hpp"
+#include "output.hpp"
 #include <stdio.h>
 %}
 
 %option yylineno
 %option noyywrap
 
-digit ([0-9])
-letter ([a-zA-Z])
 whitespace ([\t\n\r ])
-string_chars [\t\x20-\x7E]
-string_hexa_to_string ([0-7][0-9a-fA-F])
-string_escape_sequence (\\\\|\\\"|\\n|\\r|\\t|\\0|\\x{string_hexa_to_string})
-string_ilegal_sequence (\\.|\\\n|\\\r|\\x|\\x(.|\r\n)|\\x(.|\r\n)(.|\r\n))
-
-%X STRING_RULES
 
 %%
 void                        return VOID;
@@ -41,22 +34,17 @@ continue                    return CONTINUE;
 \{                          return LBRACE;
 \}                          return RBRACE;
 =                           return ASSIGN;
-[==|!=|<|>|<=|>=]           return RELOP;
-[\+|\-|\*|\/]               return BINOP;
-{letter}({digit}|{letter})* return ID;
-0{digit}+              return ERROR_UNDEFINED_CHAR;
-0|[1-9]{digit}*             return NUM;
-\/\/[^\n\r]*                 return COMMENT;
+==|!=                       return RELOP_EQUAL;
+\<|\>|\<\=|\>\=             return RELOP_GLT;
+[\+|\-]                     return BINOP_ADD;
+[\*|\/]                     return BINOP_MUL;
+[a-zA-Z][a-zA-Z0-9]*        return ID;
+0|[1-9][0-9]*               return NUM;
+\"([^\n\r\"\\]|\\[rnt"\\])+\" return STRING;
 
-[\"]                                      BEGIN(STRING_RULES); return STRING;
-<STRING_RULES>{string_escape_sequence}    return STRING;
-<STRING_RULES>{string_ilegal_sequence}    return ERROR_UNDEFINED_ESCAPE_SEQUENCE;
-<STRING_RULES>[\"]                        BEGIN(INITIAL); return STRING;
-<STRING_RULES>[\n\r]                      return ERROR_UNCLOSED_STRING;
-<STRING_RULES>{string_chars}              return STRING;
-<STRING_RULES>.                           return ERROR_UNDEFINED_CHAR;
-
+\/\/[^\r\n]*[\r|\n|\r\n]?   ;
 {whitespace}                ;
-.                           return ERROR_UNDEFINED_CHAR;
+
+.                           output::errorLex(yylineno); exit(0);
 
 %%
